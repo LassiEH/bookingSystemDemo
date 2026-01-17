@@ -23,6 +23,13 @@ public class BookingService {
                 .toList();
     }
 
+    /**
+     * Luo uuden huonevarauksen
+     * @param roomName varattavan huoneen nimi
+     * @param start varauksen alun ajankohta
+     * @param end varauksen lopun ajankohta
+     * @return luodun varauksen
+     */
     public synchronized Booking createBooking(String roomName, LocalDateTime start, LocalDateTime end) {
         // 1. Tarkistus: Alku ennen loppua
         if (start.isAfter(end) || start.isEqual(end)) {
@@ -48,6 +55,11 @@ public class BookingService {
         return newBooking;
     }
 
+    /**
+     * Poistaa annetun huonevarauksen
+     * @param id poistettavan huoneen tunniste
+     * @return onnistumiseen perustuvan boolean arvon
+     */
     public boolean cancelBooking(String id) {
         return bookings.removeIf(b -> b.getId().equals(id));
     }
