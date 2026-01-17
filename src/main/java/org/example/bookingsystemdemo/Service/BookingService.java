@@ -4,7 +4,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-// Gemini lisännyt näitä
+// Gemini ei lisännyt näitä
 import org.example.bookingsystemdemo.Models.Booking;
 
 @Service

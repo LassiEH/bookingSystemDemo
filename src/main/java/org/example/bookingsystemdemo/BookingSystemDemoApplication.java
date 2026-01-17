@@ -1,4 +1,8 @@
 package org.example.bookingsystemdemo;
+/**
+ * Gemini ei luonut tätä käynnistysluokkaa,
+ * vaan se on valmiiksi generoitu IntelliJ Idea:n avulla.
+  */
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

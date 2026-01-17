@@ -153,4 +153,56 @@ Kun sovellus on käynnissä, voit testata sitä esimerkiksi curl-komennolla tai 
 
 #### Seuraavat askeleet
 
-Tämä on vasta runko. Haluatko, että lisäämme poikkeusten käsittelyn (Global Exception Handler), jotta käyttäjä saa selkeämmän virheilmoituksen (kuten 400 Bad Request) sen sijaan, että sovellus palauttaa vain yleisen virheen?
+Tämä on vasta runko. Haluatko, että lisäämme poikkeusten käsittelyn (Global Exception Handler), jotta käyttäjä saa 
+selkeämmän virheilmoituksen (kuten 400 Bad Request) sen sijaan, että sovellus palauttaa vain yleisen virheen?
+
+# Kehote:
+> Haluan hyödyntää ResponseEntity luokkaa parempien vastausten luonnissa. Mikä on sen syntaksi, jos haluan esimerkiksi 
+> palauttaa ResponseEntityn, jonka status on 'not found' ja lisäksi sen mukana tulisi viesti, joka kertoo paremmin virheestä
+
+# Vastaus:
+
+ResponseEntity on erittäin joustava luokka, jonka avulla voit hallita vastauksen tilaa (status), otsikoita (headers) ja runkoa (body).
+
+Kun haluat palauttaa "Not Found" (404) -vastauksen viestin kera, on kaksi yleistä tapaa kirjoittaa syntaksi.
+
+1. Rakentaja-syntaksi (Suositeltu)
+   Tämä on selkein ja moderni tapa ketjuttaa metodit.
+
+```
+@DeleteMapping("/{id}")
+public ResponseEntity<String> deleteBooking(@PathVariable String id) {
+    boolean removed = bookingService.cancelBooking(id);
+    
+    if (!removed) {
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND) // Asettaa statuksen 404
+                .body("Varausta tunnuksella " + id + " ei löytynyt, joten sitä ei voitu poistaa.");
+    }
+    
+    return ResponseEntity.ok("Varaus poistettu onnistuneesti.");
+}
+```
+
+2. Lyhyempi staattinen metodi
+   ResponseEntity-luokassa on valmiita apumetodeja yleisimmille koodeille (kuten ok(), badRequest(), notFound()). Huomaa kuitenkin, että .notFound()-metodi ei salli rungon (body) lisäämistä suoraan, vaan se palauttaa yleensä vain tyhjän 404-vastauksen. Siksi viestin kanssa käytetään usein status()-metodia kuten yllä.
+
+Jos haluat välttämättä käyttää notFound()-alkua, se näyttää tältä (mutta on hieman kömpelömpi viestin kanssa):
+
+```
+return ResponseEntity.notFound().build(); // Palauttaa vain 404 ilman tekstiä
+```
+
+Paras tapa: JSON-virheviesti tekstin sijaan
+Yleensä rajapinnoissa on tapana palauttaa pelkän tekstin sijaan pieni JSON-objekti, jotta kutsuva sovellus voi lukea virheen helpommin.
+
+```
+@GetMapping("/{id}")
+public ResponseEntity<?> getBookingById(@PathVariable String id) {
+    return bookingService.findOptionalById(id)
+            .map(booking -> ResponseEntity.ok(booking))
+            .orElseGet(() -> ResponseEntity
+                    .status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Varausta ei löytynyt", "id", id)));
+}
+```
