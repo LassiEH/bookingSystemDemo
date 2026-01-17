@@ -11,8 +11,16 @@ import org.example.bookingsystemdemo.Models.Booking;
 public class BookingService {
     private final List<Booking> bookings = new ArrayList<>();
 
-    public List<Booking> getAllBookings() {
-        return bookings;
+    /**
+     * Hakee huoneen varaukset
+     * @param roomName huoneen nimi, kirjaimet voivat
+     *                 ollat isoja tai pieniä
+     * @return listan varauksista
+     */
+    public List<Booking> getBookingsForRoom(String roomName) {
+        return bookings.stream()
+                .filter(b -> b.getRoomName().equalsIgnoreCase(roomName))
+                .toList();
     }
 
     public synchronized Booking createBooking(String roomName, LocalDateTime start, LocalDateTime end) {

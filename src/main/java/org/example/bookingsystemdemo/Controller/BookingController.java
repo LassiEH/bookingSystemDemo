@@ -18,9 +18,19 @@ public class BookingController {
         this.bookingService = bookingService;
     }
 
-    @GetMapping
-    public List<Booking> getBookings() {
-        return bookingService.getAllBookings();
+    /**
+     * Palautetaan lista varauksista tietylle huoneelle.
+     * Alkuperäisessä Geminille antamassani kehotteessa oli annettu vaatimukset
+     * huonosti, joten Geminin ratkaisu listasi kaikki huonevaraukset.
+     * Omassa versiossani siis näytetään yhden huoneen varaukset.
+     * Tässä tein olettamuksen netistä lukemani perusteella, että huone, jolla
+     * ei ole varauksia palauttaa tyhjän listan HTTP-statuskoodilla 200.
+     * @param roomName huoneen nimi, jonka varaukset listataan
+     * @return lista JSON-muotoisia varauksia huoneelle
+     */
+    @GetMapping("/{roomName}")
+    public List<Booking> getBookingsForRoom(@PathVariable String roomName) {
+        return bookingService.getBookingsForRoom(roomName);
     }
 
     /**
@@ -29,6 +39,8 @@ public class BookingController {
      * Omassa ratkaisussa palautetaan onnistuessa luotu varaus,
      * ja epäonnistuessa virheen tiedot, molemmat JSON-muodossa,
      * mutta käytössä on oma virhekäsittelyn ApiError-luokka.
+     * @param request lisättävä varauspyyntö
+     * @return ResponseEntity, joka ilmoittaa onnistumisesta
      */
     @PostMapping
     public ResponseEntity<?> addBooking(@RequestBody BookingRequest request) {
@@ -62,6 +74,8 @@ public class BookingController {
      * Kuitenkin omassa ratkaisussani käytän erillistä ApiError-luokkaa,
      * jos HTTP-vastaus ilmoittaa virheestä, muuten No Content -vastauksessa
      * ei ole mukana bodya viestille.
+     * @param id poistettavan huoneen tunniste
+     * @return ResponseEntity, joka ilmoittaa onnistumisesta
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteBooking(@PathVariable String id) {
