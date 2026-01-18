@@ -43,6 +43,10 @@ public class BookingController {
      */
     @PostMapping
     public ResponseEntity<?> addBooking(@RequestBody BookingRequest request) {
+        /**
+         * Alkuperäiseen Geminin-koodiin verrattuna omassa ratkaisussani
+         * kaikki logiikka on siirretty kontrollerista palveluun.
+         */
         Booking created = bookingService.createBooking(
                 request.roomName(),
                 request.startTime(),

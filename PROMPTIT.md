@@ -206,3 +206,219 @@ public ResponseEntity<?> getBookingById(@PathVariable String id) {
                     .body(Map.of("error", "Varausta ei löytynyt", "id", id)));
 }
 ```
+# Kehote:
+
+Parantelin lopulta tällaiseen muotoon addBooking metodin controllerissa:
+
+```
+@PostMapping
+
+public ResponseEntity<?> addBooking(@RequestBody BookingRequest request) {
+
+
+
+try {
+
+Booking created = bookingService.createBooking(
+
+request.roomName(),
+
+request.startTime(),
+
+request.endTime()
+
+);
+
+
+
+return ResponseEntity
+
+.status(HttpStatus.CREATED)
+
+.body(created);
+
+
+
+} catch (Exception e) {
+
+ApiError error = new ApiError(
+
+HttpStatus.BAD_REQUEST,
+
+e.getMessage()
+
+);
+
+
+
+return ResponseEntity
+
+.status(HttpStatus.BAD_REQUEST)
+
+.body(error);
+
+}
+
+}
+```
+
+Tulisiko geneeristen Exception kutsujen sijasta käyttää jotain tiettyä?
+
+# Vastaus:
+
+Kyllä, on erittäin suositeltavaa välttää geneerisen Exception-luokan kiinniottamista. Se on ikään kuin heittäisi suuren verkon mereen: saat kiinni haluamasi kalat (liiketoimintavirheet), mutta myös roskat (kuten koodivirheet tai muistin loppumisen), joita et ehkä haluaisi käsitellä samalla tavalla.
+
+Tässä on kolme syytä ja tapaa parantaa koodia:
+
+1. Käytä spesifejä poikkeuksia
+
+Geneerinen Exception nappaa myös sellaiset virheet, joita et ole tarkoittanut (esim. NullPointerException). On parempi käyttää tarkempia poikkeuksia:
+
+- IllegalArgumentException: Kun syötetty data on väärin (esim. loppuaika ennen alkuaikaa).
+- Omat poikkeukset: Voit luoda oman luokan, esim. BookingConflictException, kun huone on jo varattu.
+
+2. Erota validointi ja järjestelmävirheet
+
+Jos koodissasi tapahtuu odottamaton virhe (esim. yhteys tietokantaan katkeaa), haluat yleensä palauttaa 500 Internal Server Error. Jos taas käyttäjä syöttää väärää tietoa, palautat 400 Bad Request. Geneerinen catch (Exception e) tekee molemmista 400-virheitä, mikä on hämmentävää rajapinnan käyttäjälle.
+
+3. Suositeltu ratkaisu: @ControllerAdvice
+
+Sen sijaan, että kirjoitat try-catch -lohkon jokaiseen kontrollerin metodiin, Springissä on tapana käyttää globaalia virheen käsittelijää. Tämä pitää kontrollerin siistinä.
+
+Päivitetty kontrolleri:
+
+```
+@PostMapping
+public ResponseEntity<Booking> addBooking(@RequestBody BookingRequest request) {
+    // Ei try-catchia! Anna poikkeuksen "kuplia" ylöspäin.
+    Booking created = bookingService.createBooking(
+            request.roomName(),
+            request.startTime(),
+            request.endTime()
+    );
+    return ResponseEntity.status(HttpStatus.CREATED).body(created);
+}
+```
+
+Globaali käsittelijä (GlobalExceptionHandler.java): Tämä nappaa vain ne virheet, jotka sinä hallitset.
+
+```
+@ControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiError> handleBusinessLogicErrors(IllegalArgumentException e) {
+        ApiError error = new ApiError(HttpStatus.BAD_REQUEST, e.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    }
+
+    // Jos haluat erottaa päällekkäisyydet omaksi koodikseen (esim. 409 Conflict)
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ApiError> handleConflict(IllegalStateException e) {
+        ApiError error = new ApiError(HttpStatus.CONFLICT, e.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+    }
+}
+```
+
+Miten etenemme?
+Haluaisitko, että luomme oman poikkeusluokan (esim. RoomAlreadyBookedException), jotta voimme palauttaa täsmällisemmän 409 Conflict -statuksen päällekkäisistä varauksista?
+
+# Kehote:
+
+Toki, mutta olen aikaisemmin luonut tämän ApiError-luokan, jolla voi muodostaa JSON-muotoisen virheen, jonka palauttaa. Käytä tätä näiden poikkeusten esittämisessä, kuten itsekin oli käyttänyt.
+
+# Vastaus:
+
+Se on erinomainen tapa toimia. Käyttämällä omaa ApiError-luokkaasi globaalissa käsittelijässä, saat pidettyä rajapinnan vastausmuodon yhtenäisenä, tapahtuipa virhe missä päin sovellusta tahansa.
+
+Tehdään tästä siisti kokonaisuus: luodaan muutama täsmällinen poikkeusluokka ja kytketään ne GlobalExceptionHandler-luokkaan, joka hyödyntää ApiError-luokkaasi.
+
+1. Luodaan täsmälliset poikkeukset
+
+Luodaan kaksi uutta poikkeusta, jotta voimme erottaa väärät syötteet (kuten menneet ajat) ja varauskonfliktit toisistaan.
+
+```
+// Käytetään, kun huone on jo varattu (HTTP 409 Conflict)
+public class BookingConflictException extends RuntimeException {
+    public BookingConflictException(String message) {
+        super(message);
+    }
+}
+
+// Käytetään, kun syötteessä on vikaa (HTTP 400 Bad Request)
+public class InvalidBookingException extends RuntimeException {
+    public InvalidBookingException(String message) {
+        super(message);
+    }
+}
+```
+
+2. Päivitetty GlobalExceptionHandler
+
+Tämä luokka kaappaa heitetyt poikkeukset ja käärii ne ApiError-muotoon.
+
+```
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ControllerAdvice;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+
+@ControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(InvalidBookingException.class)
+    public ResponseEntity<ApiError> handleInvalidBooking(InvalidBookingException e) {
+        ApiError error = new ApiError(HttpStatus.BAD_REQUEST, e.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    }
+
+    @ExceptionHandler(BookingConflictException.class)
+    public ResponseEntity<ApiError> handleConflict(BookingConflictException e) {
+        ApiError error = new ApiError(HttpStatus.CONFLICT, e.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+    }
+
+    // Napataan myös muut odottamattomat virheet, jotta nekin tulevat ApiError-muodossa
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ApiError> handleGeneralError(Exception e) {
+        ApiError error = new ApiError(HttpStatus.INTERNAL_SERVER_ERROR, "Odottamaton virhe tapahtui.");
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+    }
+}
+```
+
+3. Logiikan päivitys palvelukerroksessa (BookingService)
+
+```
+public synchronized Booking createBooking(String roomName, LocalDateTime start, LocalDateTime end) {
+    if (start.isAfter(end) || start.isEqual(end)) {
+        throw new InvalidBookingException("Aloitusajan on oltava ennen lopetusaikaa.");
+    }
+
+    if (start.isBefore(LocalDateTime.now())) {
+        throw new InvalidBookingException("Varausta ei voi tehdä menneisyyteen.");
+    }
+
+    boolean overlap = bookings.stream()
+            .filter(b -> b.getRoomName().equalsIgnoreCase(roomName))
+            .anyMatch(b -> start.isBefore(b.getEndTime()) && end.isAfter(b.getStartTime()));
+
+    if (overlap) {
+        throw new BookingConflictException("Huone " + roomName + " on jo varattu valitulla aikavälillä.");
+    }
+
+    Booking newBooking = new Booking(roomName, start, end);
+    bookings.add(newBooking);
+    return newBooking;
+}
+```
+
+Mikä tässä on hyvää?
+Kontrolleri puhdistuu: Voit poistaa try-catch-lohkot kontrollerista. Se vain kutsuu palvelua ja palauttaa OK tai CREATED.
+
+Selkeät HTTP-koodit: Päällekkäisestä varauksesta tulee nyt tyylikäs 409 Conflict, joka on semanttisesti oikein.
+
+Yhtenäisyys: Kaikki virheet näyttävät samalta kutsujalle (ID, timestamp, viesti), koska ne kaikki kulkevat ApiErrorin kautta.
+
+Miltä tämä rakenne vaikuttaa? Haluatko seuraavaksi, että lisätään automaattinen validointi BookingRequest-luokkaan (esim. @NotBlank huoneen nimelle), jotta emme saa tyhjiä varauksia?
