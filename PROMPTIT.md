@@ -208,7 +208,7 @@ public ResponseEntity<?> getBookingById(@PathVariable String id) {
 ```
 # Kehote:
 
-Parantelin lopulta tällaiseen muotoon addBooking metodin controllerissa:
+> Parantelin lopulta tällaiseen muotoon addBooking metodin controllerissa:
 
 ```
 @PostMapping
@@ -262,7 +262,7 @@ return ResponseEntity
 }
 ```
 
-Tulisiko geneeristen Exception kutsujen sijasta käyttää jotain tiettyä?
+> Tulisiko geneeristen Exception kutsujen sijasta käyttää jotain tiettyä?
 
 # Vastaus:
 
@@ -326,7 +326,8 @@ Haluaisitko, että luomme oman poikkeusluokan (esim. RoomAlreadyBookedException)
 
 # Kehote:
 
-Toki, mutta olen aikaisemmin luonut tämän ApiError-luokan, jolla voi muodostaa JSON-muotoisen virheen, jonka palauttaa. Käytä tätä näiden poikkeusten esittämisessä, kuten itsekin oli käyttänyt.
+> Toki, mutta olen aikaisemmin luonut tämän ApiError-luokan, jolla voi muodostaa JSON-muotoisen virheen, jonka palauttaa.
+> Käytä tätä näiden poikkeusten esittämisessä, kuten itsekin oli käyttänyt.
 
 # Vastaus:
 
@@ -422,3 +423,156 @@ Selkeät HTTP-koodit: Päällekkäisestä varauksesta tulee nyt tyylikäs 409 Co
 Yhtenäisyys: Kaikki virheet näyttävät samalta kutsujalle (ID, timestamp, viesti), koska ne kaikki kulkevat ApiErrorin kautta.
 
 Miltä tämä rakenne vaikuttaa? Haluatko seuraavaksi, että lisätään automaattinen validointi BookingRequest-luokkaan (esim. @NotBlank huoneen nimelle), jotta emme saa tyhjiä varauksia?
+
+# Kehote:
+
+> Meidän tulisi lisätä yksittäiselle huoneelle entiteetti ja palvelulogiikka, jotta voimme varmentaa paremmin sen, 
+> onko huoneella varauksia, vai eikö huonetta ole olemassa, sekä muut vastaavat poikkeustilanteet. Luo tähän 
+> tarvittavat ominaisuudet.
+
+# Vastaus:
+
+Tämä on looginen askel eteenpäin. Eriyttämällä huoneen (Room) omaksi entiteetikseen voimme hallita huoneen ominaisuuksia (kuten nimeä ja kapasiteettia) riippumatta varauksista. Samalla voimme varmistaa, ettei varauksia tehdä olemattomiin huoneisiin.
+
+1. Huone-entiteetti (Room.java)
+
+Luodaan yksinkertainen malli huoneelle.
+
+```
+public class Room {
+    private String id;
+    private String name;
+
+    public Room(String id, String name) {
+        this.id = id;
+        this.name = name;
+    }
+
+    // Getterit
+    public String getId() { return id; }
+    public String getName() { return name; }
+}
+```
+
+2. Huonepalvelu (RoomService.java)
+
+Tämä palvelu vastaa huoneiden hallinnasta. Lisätään sinne muutama huone oletuksena.
+
+```
+import org.springframework.stereotype.Service;
+import java.util.*;
+
+@Service
+public class RoomService {
+    private final Map<String, Room> rooms = new HashMap<>();
+
+    public RoomService() {
+        // Alustetaan muutama huone testailua varten
+        rooms.put("neukkari1", new Room("neukkari1", "Neukkari 1"));
+        rooms.put("neukkari2", new Room("neukkari2", "Neukkari 2"));
+    }
+
+    public Optional<Room> findById(String id) {
+        return Optional.ofNullable(rooms.get(id));
+    }
+
+    public List<Room> getAllRooms() {
+        return new ArrayList<>(rooms.values());
+    }
+}
+```
+
+3. Poikkeus olemattomalle huoneelle
+
+Lisätään uusi poikkeus, jotta voimme palauttaa 404 Not Found, jos huonetta ei löydy.
+
+```
+public class RoomNotFoundException extends RuntimeException {
+    public RoomNotFoundException(String message) {
+        super(message);
+    }
+}
+```
+
+Lisää tämä myös GlobalExceptionHandler-luokkaan:
+
+```
+@ExceptionHandler(RoomNotFoundException.class)
+public ResponseEntity<ApiError> handleRoomNotFound(RoomNotFoundException e) {
+    ApiError error = new ApiError(HttpStatus.NOT_FOUND, e.getMessage());
+    return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+}
+```
+
+4. Päivitetty varauslogiikka (BookingService.java)
+
+Nyt muutamme BookingServiceä niin, että se käyttää RoomServiceä huoneen olemassaolon tarkistamiseen. Muutetaan samalla varaus käyttämään huoneen ID:tä nimen sijaan.
+
+```
+@Service
+public class BookingService {
+    private final List<Booking> bookings = new ArrayList<>();
+    private final RoomService roomService;
+
+    public BookingService(RoomService roomService) {
+        this.roomService = roomService;
+    }
+
+    public synchronized Booking createBooking(String roomId, LocalDateTime start, LocalDateTime end) {
+        // 1. Varmistetaan, että huone on olemassa
+        Room room = roomService.findById(roomId)
+                .orElseThrow(() -> new RoomNotFoundException("Huonetta ID:llä " + roomId + " ei löydy."));
+
+        // 2. Aikavälin validointi
+        if (start.isAfter(end) || start.isEqual(end)) {
+            throw new InvalidBookingException("Aloitusajan on oltava ennen lopetusaikaa.");
+        }
+        if (start.isBefore(LocalDateTime.now())) {
+            throw new InvalidBookingException("Varausta ei voi tehdä menneisyyteen.");
+        }
+
+        // 3. Päällekkäisyyden tarkistus (käyttäen roomId:tä)
+        boolean overlap = bookings.stream()
+                .filter(b -> b.getRoomId().equals(roomId))
+                .anyMatch(b -> start.isBefore(b.getEndTime()) && end.isAfter(b.getStartTime()));
+
+        if (overlap) {
+            throw new BookingConflictException("Huone " + room.getName() + " on jo varattu.");
+        }
+
+        Booking newBooking = new Booking(roomId, start, end);
+        bookings.add(newBooking);
+        return newBooking;
+    }
+}
+```
+
+5. Uudet rajapintametodit (RoomController.java)
+
+On hyvä tarjota rajapinta, josta näkee mitä huoneita on varattavissa.
+
+```
+@RestController
+@RequestMapping("/api/rooms")
+public class RoomController {
+    private final RoomService roomService;
+
+    public RoomController(RoomService roomService) {
+        this.roomService = roomService;
+    }
+
+    @GetMapping
+    public List<Room> getRooms() {
+        return roomService.getAllRooms();
+    }
+}
+```
+
+Yhteenveto muutoksista
+Vikasieto: Jos yrität varata huonetta id: "keittiö", sovellus palauttaa 404 Not Found ja viestin "Huonetta ID:llä keittiö ei löydy".
+
+Selkeys: Varaukset on nyt sidottu uniikkeihin ID-tunnuksiin, ei vapaaseen tekstiin.
+
+Laajennettavuus: Voimme myöhemmin lisätä huoneille ominaisuuksia, kuten videotykki tai paikkamäärä.
+
+Haluatko, että lisään seuraavaksi huoneen hakuun ominaisuuden, joka näyttää vain vapaana olevat huoneet tietylle aikavälille?

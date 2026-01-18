@@ -4,22 +4,33 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 public class Booking {
+    /** varauksen tunniste */
     private String id;
-    private String roomName;
+    /** varauksen huone */
+    private Room room;
+    /** varauksen aloitusajankohta */
     private LocalDateTime startTime;
+    /** varauksen lopetusajankohta */
 
     private LocalDateTime endTime;
 
-    public Booking(String roomName, LocalDateTime startTime, LocalDateTime endTime) {
+    /**
+     * Luo uuden varauksen
+     *
+     * @param room varattava huone
+     * @param startTime varauksen aloitusaika
+     * @param endTime varauksen lopetusaika
+     */
+    public Booking(Room room, LocalDateTime startTime, LocalDateTime endTime) {
         this.id = UUID.randomUUID().toString();
-        this.roomName = roomName;
+        this.room = room;
         this.startTime = startTime;
         this.endTime = endTime;
     }
 
-    // Getterit ja Setterit
+    // Getterit
     public String getId() { return id; }
-    public String getRoomName() { return roomName; }
+    public Room getRoom() { return room; }
     public LocalDateTime getStartTime() { return startTime; }
     public LocalDateTime getEndTime() { return endTime; }
 }
