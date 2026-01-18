@@ -1,6 +1,5 @@
 package org.example.bookingsystemdemo.Controller;
 
-import org.example.bookingsystemdemo.Models.ApiError;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -44,52 +43,30 @@ public class BookingController {
      */
     @PostMapping
     public ResponseEntity<?> addBooking(@RequestBody BookingRequest request) {
+        Booking created = bookingService.createBooking(
+                request.roomName(),
+                request.startTime(),
+                request.endTime()
+        );
 
-        try {
-            Booking created = bookingService.createBooking(
-                    request.roomName(),
-                    request.startTime(),
-                    request.endTime()
-            );
-
-            return ResponseEntity
-                    .status(HttpStatus.CREATED)
-                    .body(created);
-
-        } catch (Exception e) {
-            ApiError error = new ApiError(
-                    HttpStatus.BAD_REQUEST,
-                    e.getMessage()
-            );
-
-            return ResponseEntity
-                    .status(HttpStatus.BAD_REQUEST)
-                    .body(error);
-        }
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(created);
     }
 
     /**
      * Geminin vastauksessa luodaan ResponseEntity statuksella
-     * ja tekstiä sisältävällä bodylla, paras tapa JSON-virheviesti.
-     * Kuitenkin omassa ratkaisussani käytän erillistä ApiError-luokkaa,
-     * jos HTTP-vastaus ilmoittaa virheestä, muuten No Content -vastauksessa
-     * ei ole mukana bodya viestille.
+     * ja tekstiä sisältävällä bodylla, ja paras tapa on JSON-virheviesti.
+     * Kuitenkin omassa ratkaisussani käytän erillistä GlobalExceptionHandler-luokkaa
+     * ja ApiError-luokkaa, jotka käsittelevät virheen muualla,
+     * jos HTTP-vastaus ilmoittaa virheestä.
+     * Muuten No Content -vastauksessa ei ole mukana bodya viestille.
      * @param id poistettavan huoneen tunniste
      * @return ResponseEntity, joka ilmoittaa onnistumisesta
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteBooking(@PathVariable String id) {
-        boolean removed = bookingService.cancelBooking(id);
-
-        if (!removed) {
-            ApiError error = new ApiError(
-                    HttpStatus.NOT_FOUND,
-                    ("Varausta id:llä " + id + " ei ole")
-            );
-            return ResponseEntity
-                    .status(HttpStatus.NOT_FOUND)
-                    .body(error);
-        }
+        bookingService.cancelBooking(id);
 
         return ResponseEntity.noContent().build();
     }
