@@ -66,7 +66,7 @@ public class BookingService {
     public void cancelBooking(String id) {
         boolean removed = bookings.removeIf(b -> b.getId().equals(id));
         if (!removed) {
-            throw new BookingNotFoundException(id);
+            throw new BookingNotFoundException("Huonetta tunnisteella " + id + " ei ole.");
         }
     }
 }
