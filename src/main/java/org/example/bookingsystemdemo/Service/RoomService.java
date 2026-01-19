@@ -11,8 +11,8 @@ public class RoomService {
 
     public RoomService() {
         // Alustetaan muutama huone testailua varten
-        rooms.put("neukkari1", new Room("neukkari1", "Neukkari 1"));
-        rooms.put("neukkari2", new Room("neukkari2", "Neukkari 2"));
+        rooms.put("neukkari1", new Room("neukkari1", "Neukkari1"));
+        rooms.put("neukkari2", new Room("neukkari2", "Neukkari2"));
     }
 
     /**

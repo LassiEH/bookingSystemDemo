@@ -576,3 +576,131 @@ Selkeys: Varaukset on nyt sidottu uniikkeihin ID-tunnuksiin, ei vapaaseen teksti
 Laajennettavuus: Voimme myöhemmin lisätä huoneille ominaisuuksia, kuten videotykki tai paikkamäärä.
 
 Haluatko, että lisään seuraavaksi huoneen hakuun ominaisuuden, joka näyttää vain vapaana olevat huoneet tietylle aikavälille?
+
+# Kehote:
+
+> Emme ole vielä tehneet yhtään testejä. Luo testit hyvin ja kriittisesti BookingServicen tasolla.
+
+# Vastaus:
+
+Tämä on kriittinen vaihe. Koska BookingService sisältää sovelluksen tärkeimmän liiketoimintalogiikan, meidän on varmistettava, että rajoitteet pitävät kaikissa skenaarioissa.
+
+Käytämme testaamiseen JUnit 5 -kehystä ja Mockitoa, jotta voimme simuloida RoomService:n toimintaa erillään.
+
+Testiskenaariot
+
+Testaamme seuraavat tapaukset:
+
+1. Onnistunut varaus, kun huone on olemassa ja vapaa.
+2. Virhe: Huonetta ei löydy (404-skenaario).
+3. Virhe: Menneisyys (Varaus ei voi alkaa ennen tätä hetkeä).
+4. Virhe: Aikajärjestys (Loppu ennen alkua).
+5. Virhe: Päällekkäisyys (Testataan kolme eri päällekkäisyyden muotoa).
+
+```
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+import java.time.LocalDateTime;
+import java.util.Optional;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+
+class BookingServiceTest {
+
+    private BookingService bookingService;
+    private RoomService roomService;
+
+    @BeforeEach
+    void setUp() {
+        roomService = mock(RoomService.class);
+        bookingService = new BookingService(roomService);
+        
+        // Luodaan oletusarvoinen huone mock-palveluun
+        when(roomService.findById("neukkari1"))
+            .thenReturn(Optional.of(new Room("neukkari1", "Neukkari 1")));
+    }
+
+    @Test
+    @DisplayName("Pitäisi luoda varaus onnistuneesti kun tiedot ovat oikein")
+    void createBooking_Success() {
+        LocalDateTime start = LocalDateTime.now().plusDays(1);
+        LocalDateTime end = start.plusHours(1);
+
+        Booking result = bookingService.createBooking("neukkari1", start, end);
+
+        assertNotNull(result);
+        assertEquals("neukkari1", result.getRoomId());
+        assertEquals(1, bookingService.getAllBookings().size());
+    }
+
+    @Test
+    @DisplayName("Pitäisi heittää RoomNotFoundException jos huonetta ei ole")
+    void createBooking_RoomNotFound() {
+        when(roomService.findById("olematon")).thenReturn(Optional.empty());
+
+        assertThrows(RoomNotFoundException.class, () -> {
+            bookingService.createBooking("olematon", LocalDateTime.now().plusDays(1), LocalDateTime.now().plusDays(1).plusHours(1));
+        });
+    }
+
+    @Test
+    @DisplayName("Pitäisi estää varaus menneisyyteen")
+    void createBooking_PastTime() {
+        LocalDateTime pastStart = LocalDateTime.now().minusHours(1);
+        LocalDateTime end = LocalDateTime.now().plusHours(1);
+
+        assertThrows(InvalidBookingException.class, () -> {
+            bookingService.createBooking("neukkari1", pastStart, end);
+        });
+    }
+
+    @Test
+    @DisplayName("Pitäisi estää varaus jos loppuaika on ennen alkuaikaa")
+    void createBooking_EndBeforeStart() {
+        LocalDateTime start = LocalDateTime.now().plusDays(1);
+        LocalDateTime end = start.minusHours(1);
+
+        assertThrows(InvalidBookingException.class, () -> {
+            bookingService.createBooking("neukkari1", start, end);
+        });
+    }
+
+    @Test
+    @DisplayName("Pitäisi estää päällekkäinen varaus")
+    void createBooking_Overlap() {
+        LocalDateTime start = LocalDateTime.now().plusDays(1).withHour(10).withMinute(0);
+        LocalDateTime end = start.plusHours(2); // 10:00 - 12:00
+
+        // Tehdään ensimmäinen varaus
+        bookingService.createBooking("neukkari1", start, end);
+
+        // Yritetään tehdä päällekkäinen varaus (11:00 - 11:30)
+        assertThrows(BookingConflictException.class, () -> {
+            bookingService.createBooking("neukkari1", start.plusHours(1), start.plusHours(1).plusMinutes(30));
+        });
+        
+        // Yritetään tehdä päällekkäinen varaus, joka alkaa ennen ja loppuu keskelle (09:00 - 11:00)
+        assertThrows(BookingConflictException.class, () -> {
+            bookingService.createBooking("neukkari1", start.minusHours(1), start.plusHours(1));
+        });
+    }
+}
+```
+
+Mitä tässä on huomioitava?
+
+Päällekkäisyyden logiikka: Testissä on useita päällekkäisyysskenaarioita. Logiikka start.isBefore(b.getEndTime()) && 
+end.isAfter(b.getStartTime()) on matemaattisesti kattavin tapa todeta kahden aikavälin leikkaus.
+
+Aika-riippuvuus: Käytän LocalDateTime.now().plusDays(1), jotta testit eivät epäonnistu sen takia, että "tämä hetki" 
+muuttuu testin suorituksen aikana (verrattuna kovaan koodattuun päivämäärään).
+
+Eristys: Mockaamalla RoomService:n varmistamme, että testaamme vain BookingService:n logiikkaa, emme huoneiden 
+tallennusmekanismia.
+
+Haluatko, että täydennämme testejä vielä integraatiotesteillä, jotka varmistavat, että GlobalExceptionHandler 
+todella palauttaa oikeat HTTP-koodit ja ApiError-objektit?
