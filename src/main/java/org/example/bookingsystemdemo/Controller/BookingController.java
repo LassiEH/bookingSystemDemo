@@ -19,11 +19,14 @@ public class BookingController {
 
     /**
      * Palautetaan lista varauksista tietylle huoneelle.
+     *
+     * Dokumentaatio tehtävän kannalta:
      * Alkuperäisessä Geminille antamassani kehotteessa oli annettu vaatimukset
      * huonosti, joten Geminin ratkaisu listasi kaikki huonevaraukset.
      * Omassa versiossani siis näytetään yhden huoneen varaukset.
      * Tässä tein olettamuksen netistä lukemani perusteella, että huone, jolla
      * ei ole varauksia palauttaa tyhjän listan HTTP-statuskoodilla 200.
+     *
      * @param roomName huoneen nimi, jonka varaukset listataan
      * @return lista JSON-muotoisia varauksia huoneelle
      */
@@ -33,17 +36,22 @@ public class BookingController {
     }
 
     /**
+     * Lisätään varaus huoneelle
+     *
+     * Dokumentaatio tehtävän kannalta:
      * Geminin ratkaisussa on parasta palauttaa JSON-virheviesti,
      * mutta sen toteutus Geminin ratkaisussa on hyvin vaikeaselkoinen.
      * Omassa ratkaisussa palautetaan onnistuessa luotu varaus,
      * ja epäonnistuessa virheen tiedot, molemmat JSON-muodossa,
      * mutta käytössä on oma virhekäsittelyn ApiError-luokka.
+     *
      * @param request lisättävä varauspyyntö
      * @return ResponseEntity, joka ilmoittaa onnistumisesta
      */
     @PostMapping
     public ResponseEntity<?> addBooking(@RequestBody BookingRequest request) {
         /**
+         * Dokumentaatio tehtävän kannalta:
          * Alkuperäiseen Geminin-koodiin verrattuna omassa ratkaisussani
          * kaikki logiikka on siirretty kontrollerista palveluun.
          */
@@ -59,12 +67,16 @@ public class BookingController {
     }
 
     /**
+     * Poistetaan varaus huoneelta
+     *
+     * Dokumentaatio tehtävän kannalta:
      * Geminin vastauksessa luodaan ResponseEntity statuksella
      * ja tekstiä sisältävällä bodylla, ja paras tapa on JSON-virheviesti.
      * Kuitenkin omassa ratkaisussani käytän erillistä GlobalExceptionHandler-luokkaa
      * ja ApiError-luokkaa, jotka käsittelevät virheen muualla,
      * jos HTTP-vastaus ilmoittaa virheestä.
      * Muuten No Content -vastauksessa ei ole mukana bodya viestille.
+     *
      * @param id poistettavan huoneen tunniste
      * @return ResponseEntity, joka ilmoittaa onnistumisesta
      */
