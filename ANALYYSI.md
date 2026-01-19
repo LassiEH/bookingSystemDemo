@@ -23,7 +23,7 @@ testit.
 ### Poikkeustilanteiden ja virhekäsittelyn parannukset ja lisäykset. 
 Kehotin tekoälyä hyödyntämään ResponseEntityä HTTP-vastausten luonnissa, mutta tekoälyn 
 vastaus oli kovin puutteellinen, joten loin virhevastauksille luokan, joka kokoaa JSON-muotoon
-kattavamman ilmoituksen. Lopuksi ohjasin vielä tekoälyn ehdottaman globaalinen poikkeuskäsittelijän
+kattavamman ilmoituksen. Lopuksi ohjasin vielä tekoälyn ehdottaman globaalin poikkeuskäsittelijän
 hyödyntämään tätä luokkaa. Loin vielä tekoälyn unohtamat poikkeukset. Näkisin tämän noudattavan paremmin
 modernia kehitystä, ja ratkaisujeni noudattavan REST-standardeja ja hyviä tapoja.
 
@@ -38,5 +38,5 @@ Jätin kuitenkin yksinkertaisen muutaman huoneen lisäyksen, jotta tehtävän pa
 Kehotin tekoälyä luomaan yksikkötestit jatkettavuuden takaamiseksi, jotta tulevaisuuden lisäysten luomat
 ongelmat ja defektit havaittaisiin. Kuitenkin muutokseni tekoälyn vastauksiin ja muu puutteellinen konteksi
 ratkaisustani teki tekoälyn raakakoodista jokseenkin virheellistä, joten jouduin muokkaaman testejä.
-Lisäksi tekoäly loi epämääräisiä kommentteja ja nimiä testeille. Poistin turhat kondiotionaalit testinimistä ja
-esimerkiksi täysin väärät ja turhat kellonajat, joita se oli pannut päällekkäisten varausten testiin.
+Lisäksi tekoäly loi epämääräisiä kommentteja ja nimiä testeille. Poistin turhat konditionaalit testien nimistä sekä
+esimerkiksi täysin väärät ja turhat kellonajat, joita tekoäly oli pannut esimerkiksi testiin, jossa käsiteltiin päällekkäisiä varauksia.
