@@ -1,12 +1,12 @@
-GET http://localhost:8080/api/bookings
+GET http://localhost:8080/api/bookings/Neukkari1
 ###
 POST http://localhost:8080/api/bookings
 Content-Type: application/json
 
 {
-  "roomName": "Neukkari 2",
-  "startTime": "2026-01-17T12:00:00",
-  "endTime": "2026-01-17T13:00:00"
+  "roomName": "Neukkari1",
+  "startTime": "2026-01-19T23:35:00",
+  "endTime": "2026-01-20T00:15:00"
 }
 ###
-DELETE http://localhost:8080/api/bookings/<korvaa id tähän>
+DELETE http://localhost:8080/api/bookings/<varauksen id>
